@@ -1,0 +1,150 @@
+void Mbc()
+{
+  using namespace RooFit;
+  gROOT->LoadMacro("~/Belle2Style.C");
+
+  TCanvas *canvas = new TCanvas("canvas", "canvas", 600,800);
+  canvas->Draw();
+  canvas->cd();
+
+  TFile *input = new TFile("~/sad15/sad/kaonsignal1/kaonsig_D_M_fit.root");
+  TTree *mytree = (TTree*)input->Get("dsttree");
+
+  RooRealVar Mbc("Mbc","Mbc",5.2,5.29);
+  RooDataSet data("data","dataset", mytree, RooArgList(Mbc));
+
+  //signal
+  RooRealVar mean("mean","mean", 5.27949, 5.2, 5.29);
+  RooRealVar sigmaL("sigmaL", "sigmaL", 0.00270166, 0.0001, 1);
+  RooRealVar sigmaR("sigmaR", "sigmaR", 0.00313585, 0.0001, 1);
+  RooBifurGauss sig("sig","signal p.d.f.", Mbc, mean, sigmaL, sigmaR);
+  
+  //bkg
+  RooRealVar c0("c0", "coefficient #0",  1.12605, -10.0, 10.0);
+  RooRealVar c1("c1", "coefficient #1", 0.0408585, -1.0, 1.0);
+  RooRealVar c2("c2", "coefficient #2", -0.371549, -1.0, 1.0);
+  RooRealVar c3("c3", "coefficient #3", -0.279539, -1.0, 1.0);
+  RooRealVar c4("c4", "coefficient #4", -0.05, -1.0, 1.0);
+  RooRealVar c5("c5", "coefficient #5", -0.05, -1.0, 1.0);
+  RooChebychev bkg("bkg", "background p.d.f.", Mbc, RooArgList(c0, c1, c2, c3, c4, c5));
+  RooRealVar fsig("fsig","signal fraction", 0.9, 0., 1.);
+
+  //model
+  RooAddPdf model("model","model", RooArgList(sig,bkg),fsig);
+  model.fitTo(data);
+    
+    
+  canvas->cd();
+  TPad *pad1 = new TPad("pad1","data pad",0.1,0.5,1.,1.);
+  pad1->Draw();
+  pad1->cd();
+  RooPlot *frame = Mbc.frame();
+  data.plotOn(frame);
+  model.plotOn(frame, Components(sig), LineColor(kRed), LineStyle(kDashed));
+  model.plotOn(frame, Components(bkg), LineColor(kGreen), LineStyle(kDashed));
+  model.plotOn(frame);
+  frame->SetTitle("#bar{B^{0}} #rightarrow D^{+} (K^{-} #pi^{+} #pi^{+}) K^{-} ");
+  frame->GetYaxis()->SetTitle("Events");
+  frame->GetXaxis()->SetTitle("Mbc [GeV/c^{2}]");
+  gPad->SetLeftMargin(0.2);
+  frame->Draw();
+  canvas->Update();
+
+
+  canvas->cd();
+  TPad *pad2 = new TPad("pad2","pull pad",0.1,0.3,1.,0.5);
+  pad2->Draw();
+  pad2->cd();
+  RooHist* hpull = frame->pullHist();
+  RooPlot* frame2 = Mbc.frame();
+  frame2->addPlotable(hpull,"P");
+  frame2->SetTitle("");
+  frame2->GetYaxis()->SetTitle("Pull");
+  frame2->GetXaxis()->SetTitleSize(0.1);
+  frame2->GetXaxis()->SetLabelSize(0.1);
+  frame2->GetYaxis()->SetTitleSize(0.1);
+  frame2->GetYaxis()->SetLabelSize(0.1);
+  frame2->GetYaxis()->SetTitleOffset(0.5);
+  frame2->GetYaxis()->SetNdivisions(302);
+  frame2->SetAxisRange(-3., 3.,"Y");
+  frame2->GetXaxis()->SetTitle("Mbc [GeV/c^{2}]");
+  gPad->SetLeftMargin(0.2);
+  gPad->SetBottomMargin(0.1);
+  frame2->Draw();
+
+  TLine *line = new TLine(5.2,0,5.29,0);
+  line->SetLineColor(kBlack);
+  line->Draw();
+  
+  canvas->cd();
+  TPad *pad3 = new TPad("pad3","residual pad",0.1,0.1,1.,0.3);
+  pad3->Draw();
+  pad3->cd();
+  RooHist* hresid = frame->residHist() ;
+  RooPlot* frame3 = Mbc.frame();
+  frame3->addPlotable(hresid,"P");
+  frame3->SetTitle("");
+  frame3->GetYaxis()->SetTitle("Residual");
+  frame3->GetXaxis()->SetTitleSize(0.1);
+  frame3->GetXaxis()->SetLabelSize(0.1);
+  frame3->GetYaxis()->SetTitleSize(0.1);
+  frame3->GetYaxis()->SetLabelSize(0.1);
+  frame3->GetYaxis()->SetTitleOffset(0.5);
+  frame3->GetYaxis()->SetNdivisions(10);
+  frame3->SetAxisRange(-100., 100.,"Y");
+  frame3->GetXaxis()->SetTitle("Mbc [GeV/c^{2}]");
+  gPad->SetLeftMargin(0.2);
+  gPad->SetBottomMargin(0.1);
+  frame3->Draw();
+
+  TLine *line1 = new TLine(5.2,0,5.29,0);
+  line->SetLineColor(kBlack);
+  line->Draw();
+  
+  
+  cout << "chi^2/ndf = " << frame->chiSquare() << endl;
+  data.Print();
+  Double_t low_cut = mean.getVal() - 3*sigmaL.getVal();
+  Double_t high_cut = mean.getVal() + 3*sigmaR.getVal();
+  cout << " sigmaL =" << sigmaL.getValV() << endl << endl;
+  cout << " sigmaR =" << sigmaR.getValV() << endl << endl;
+  cout << "low cut =" << low_cut << endl;
+  cout << "highcut =" << high_cut << endl;
+
+
+
+  pad1->cd();
+  TLatex* mean_txt = new TLatex();
+  mean_txt->DrawLatex(5.21, 30000, "#scale[0.8]{#color[6]{mean = 5.2797 GeV/C^{2}}}");
+  mean_txt->Draw();
+  TLatex* sigmaL_txt = new TLatex();
+  sigmaL_txt->DrawLatex(5.21, 25000, "#scale[0.8]{#color[6]{#sigma_{L} = 0.002592 GeV/C^{2}}}");
+  sigmaL_txt->Draw();
+  TLatex* sigmaR_txt = new TLatex();
+  sigmaR_txt->DrawLatex(5.21, 20000, "#scale[0.8]{#color[6]{#sigma_{R} = 0.002511 GeV/C^{2}}}");
+  sigmaR_txt->Draw();
+  TLatex* lower_txt = new TLatex();
+  lower_txt->DrawLatex(5.21, 15000, "#scale[0.8]{#color[6]{lower cut = 5.272 GeV/C^{2}}}");
+  lower_txt->Draw();
+  TLatex* upper_txt = new TLatex();
+  upper_txt->DrawLatex(5.21, 10000, "#scale[0.8]{#color[6]{upper cut = 5.287 GeV/C^{2}}}");
+  upper_txt->Draw();
+  TLatex* chi_txt = new TLatex();
+  chi_txt->DrawLatex(5.21, 5000, "#scale[0.8]{#color[6]{#chi^{2} = 0.9062}}");
+  chi_txt->Draw();
+
+  canvas->cd();
+
+  pad1->cd();
+  TArrow *arrow1 = new TArrow(low_cut,350,low_cut,300,0.01);
+  arrow1->SetLineWidth(2);
+  arrow1->SetLineColor(kRed);
+  arrow1->Draw();
+  TArrow *arrow2 = new TArrow(high_cut,150,high_cut,100,0.01);
+  arrow2->SetLineWidth(2);
+  arrow2->SetLineColor(kRed);
+  arrow2->Draw();
+  canvas->cd();
+    
+  canvas->SaveAs("Mbc_fit.pdf");
+}
